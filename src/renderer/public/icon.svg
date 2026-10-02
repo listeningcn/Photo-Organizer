@@ -1,0 +1,34 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#5c7cfa"/>
+      <stop offset="1" stop-color="#7048e8"/>
+    </linearGradient>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffe8a3"/>
+      <stop offset="1" stop-color="#ffc078"/>
+    </linearGradient>
+    <linearGradient id="hill" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#40c057"/>
+      <stop offset="1" stop-color="#2b8a3e"/>
+    </linearGradient>
+    <clipPath id="photo">
+      <rect x="252" y="292" width="520" height="440" rx="36"/>
+    </clipPath>
+  </defs>
+  <rect x="64" y="64" width="896" height="896" rx="200" fill="url(#bg)"/>
+  <!-- back card -->
+  <rect x="212" y="232" width="520" height="440" rx="36" fill="#ffffff" opacity="0.35" transform="rotate(-8 472 452)"/>
+  <!-- front photo -->
+  <rect x="232" y="272" width="560" height="480" rx="48" fill="#ffffff"/>
+  <g clip-path="url(#photo)">
+    <rect x="252" y="292" width="520" height="440" fill="url(#sky)"/>
+    <circle cx="652" cy="410" r="52" fill="#fff4e6"/>
+    <path d="M252 640 L420 470 L540 590 L610 520 L772 680 L772 732 L252 732 Z" fill="url(#hill)"/>
+  </g>
+  <!-- lock badge -->
+  <circle cx="770" cy="760" r="120" fill="#1f1f1f"/>
+  <rect x="712" y="752" width="116" height="92" rx="16" fill="#ffffff"/>
+  <path d="M735 752 v-30 a35 35 0 0 1 70 0 v30" fill="none" stroke="#ffffff" stroke-width="20" stroke-linecap="round"/>
+  <circle cx="770" cy="796" r="13" fill="#1f1f1f"/>
+</svg>
