@@ -58,8 +58,13 @@ export interface PhotoApi {
   rescan(): Promise<void>;
   cancelImport(): Promise<void>;
   listFolders(): Promise<string[]>;
-  listPhotos(hidden: boolean): Promise<PhotoDto[]>;
-  hidePhoto(id: number, password: string): Promise<void>;
+  listPhotos(): Promise<PhotoDto[]>;
+  hiddenCount(): Promise<number>;
+  /** True while hidden photos can be accessed without the password (10 min after entering it). */
+  hideAuthorized(): Promise<boolean>;
+  /** Lists hidden photos; password may be null within the grace period. */
+  listHidden(password: string | null): Promise<PhotoDto[]>;
+  hidePhoto(id: number, password: string | null): Promise<void>;
   restorePhoto(id: number): Promise<void>;
   /** Reads EXIF details from the original file on demand. */
   photoDetails(id: number): Promise<PhotoDetails>;

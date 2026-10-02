@@ -1,13 +1,11 @@
-import { Alert, Button, Group, Progress, Tabs, Text, Tooltip } from '@mantine/core';
+import { ActionIcon, Alert, Button, Group, Progress, Tabs, Text } from '@mantine/core';
 import {
-  IconFolderPlus,
-  IconLock,
   IconMap,
   IconPhoto,
   IconPlayerStop,
-  IconRefresh,
   IconSettings,
   IconPlane,
+  IconX,
 } from '@tabler/icons-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
@@ -39,10 +37,25 @@ interface LibraryProps {
   onLocked: () => void;
 }
 
+function CloseStatus({ onClose }: { onClose: () => void }) {
+  return (
+    <ActionIcon
+      size="xs"
+      variant="subtle"
+      color="gray"
+      aria-label="Close status"
+      onClick={onClose}
+    >
+      <IconX size={12} />
+    </ActionIcon>
+  );
+}
+
 export function Library({ onLocked }: LibraryProps) {
   const [tab, setTab] = useState<Tab>('timeline');
   const [photos, setPhotos] = useState<PhotoDto[]>([]);
-  const [hiddenPhotos, setHiddenPhotos] = useState<PhotoDto[]>([]);
+  const [hiddenCount, setHiddenCount] = useState(0);
+  const [filterSlot, setFilterSlot] = useState<HTMLDivElement | null>(null);
   const [folders, setFolders] = useState<string[]>([]);
   const [mapAvailable, setMapAvailable] = useState(false);
   /** Photos the viewer steps through (timeline, map or one event) and the open index. */
@@ -122,12 +135,12 @@ export function Library({ onLocked }: LibraryProps) {
 
   const reload = useCallback(async () => {
     const [visible, hidden, folderList] = await Promise.all([
-      window.api.listPhotos(false),
-      window.api.listPhotos(true),
+      window.api.listPhotos(),
+      window.api.hiddenCount(),
       window.api.listFolders(),
     ]);
     setPhotos(visible);
-    setHiddenPhotos(hidden);
+    setHiddenCount(hidden);
     setFolders(folderList);
   }, []);
 
@@ -178,7 +191,7 @@ export function Library({ onLocked }: LibraryProps) {
     }
   };
 
-  const handleHide = async (id: number, password: string) => {
+  const handleHide = async (id: number, password: string | null) => {
     await window.api.hidePhoto(id, password);
     setViewer((current) => {
       if (!current) return null;
@@ -186,11 +199,6 @@ export function Library({ onLocked }: LibraryProps) {
       if (ids.length === 0) return null;
       return { ids, index: Math.min(current.index, ids.length - 1) };
     });
-    await reload();
-  };
-
-  const handleRestore = async (id: number) => {
-    await window.api.restorePhoto(id);
     await reload();
   };
 
@@ -237,38 +245,6 @@ export function Library({ onLocked }: LibraryProps) {
               Settings
             </Tabs.Tab>
           </Tabs.List>
-          <Group gap="xs" wrap="nowrap" className="actions">
-            <Tooltip label="Rescan all folders">
-              <Button
-                variant="default"
-                size="xs"
-                leftSection={<IconRefresh size={14} />}
-                disabled={importing}
-                onClick={() => runImport(() => window.api.rescan())}
-              >
-                Rescan
-              </Button>
-            </Tooltip>
-            <Button
-              size="xs"
-              leftSection={<IconFolderPlus size={14} />}
-              loading={importing}
-              onClick={() => runImport(() => window.api.addFolder())}
-            >
-              Add folder
-            </Button>
-            <Tooltip label="Lock library">
-              <Button
-                variant="subtle"
-                color="gray"
-                size="xs"
-                leftSection={<IconLock size={14} />}
-                onClick={lock}
-              >
-                Lock
-              </Button>
-            </Tooltip>
-          </Group>
         </header>
 
         {progress && (
@@ -302,26 +278,33 @@ export function Library({ onLocked }: LibraryProps) {
               </Group>
             )}
             {progress.unavailable ? (
-              <Text size="xs" c="yellow" mt={4}>
-                Skipped {progress.folder}: folder not reachable (is the drive connected?).
-                Its photos were left as they are.
-              </Text>
+              <Group gap="xs" wrap="nowrap" justify="space-between" mt={4}>
+                <Text size="xs" c="yellow">
+                  Skipped {progress.folder}: folder not reachable (is the drive
+                  connected?). Its photos were left as they are.
+                </Text>
+                {progress.done && <CloseStatus onClose={() => setProgress(null)} />}
+              </Group>
             ) : (
-              <Text size="xs" c="dimmed" mt={4}>
-                {progress.cancelled
-                  ? 'Stopped'
-                  : stopping
-                    ? 'Stopping…'
-                    : progress.done
-                      ? 'Done'
-                      : progress.total
-                        ? 'Importing'
-                        : 'Scanning'}{' '}
-                {progress.scanned}/{progress.total}
-                {progress.total > 0 && ` (${Math.floor(percent)}%)`} · {progress.imported}{' '}
-                new · {progress.unchanged} unchanged · {progress.relinked} moved ·{' '}
-                {progress.duplicates} duplicates · {progress.failed} failed
-              </Text>
+              <Group gap="xs" wrap="nowrap" justify="space-between" mt={4}>
+                <Text size="xs" c="dimmed">
+                  {progress.cancelled
+                    ? 'Stopped'
+                    : stopping
+                      ? 'Stopping…'
+                      : progress.done
+                        ? 'Done'
+                        : progress.total
+                          ? 'Importing'
+                          : 'Scanning'}{' '}
+                  {progress.scanned}/{progress.total}
+                  {progress.total > 0 && ` (${Math.floor(percent)}%)`} ·{' '}
+                  {progress.imported} new · {progress.unchanged} unchanged ·{' '}
+                  {progress.relinked} moved · {progress.duplicates} duplicates ·{' '}
+                  {progress.failed} failed
+                </Text>
+                {progress.done && <CloseStatus onClose={() => setProgress(null)} />}
+              </Group>
             )}
           </div>
         )}
@@ -344,6 +327,7 @@ export function Library({ onLocked }: LibraryProps) {
             filter={filter}
             shown={shownPhotos.length}
             onChange={setFilter}
+            slotRef={setFilterSlot}
           />
         )}
 
@@ -352,7 +336,11 @@ export function Library({ onLocked }: LibraryProps) {
             {shownPhotos.length === 0 && photos.length > 0 ? (
               <p className="empty">Nothing matches the filter.</p>
             ) : (
-              <Timeline photos={shownPhotos} onOpen={openPhoto} />
+              <Timeline
+                photos={shownPhotos}
+                onOpen={openPhoto}
+                toolbarSlot={filterSlot}
+              />
             )}
           </Tabs.Panel>
           <Tabs.Panel value="trips">
@@ -365,6 +353,7 @@ export function Library({ onLocked }: LibraryProps) {
               onOpen={openIn}
               onRename={renameEvent}
               onSetHome={() => setTab('settings')}
+              toolbarSlot={filterSlot}
             />
           </Tabs.Panel>
           {mapAvailable && (
@@ -374,10 +363,12 @@ export function Library({ onLocked }: LibraryProps) {
           )}
           <Tabs.Panel value="settings">
             <SettingsView
-              hiddenPhotos={hiddenPhotos}
-              onRestore={handleRestore}
+              hiddenCount={hiddenCount}
+              onRestored={() => reload().catch((err) => setError(errorMessage(err)))}
               folders={folders}
               busy={importing}
+              onAddFolder={() => runImport(() => window.api.addFolder())}
+              onRescan={() => runImport(() => window.api.rescan())}
               home={home}
               suggestedHome={suggestedHome}
               onHomeChange={changeHome}

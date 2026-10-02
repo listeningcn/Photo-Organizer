@@ -5,6 +5,8 @@ import { errorMessage } from '../error-message';
 interface PasswordDialogProps {
   title: string;
   description: string;
+  /** Extra hint shown below the description. */
+  note?: string;
   confirmLabel: string;
   onConfirm: (password: string) => Promise<void>;
   onCancel: () => void;
@@ -13,6 +15,7 @@ interface PasswordDialogProps {
 export function PasswordDialog({
   title,
   description,
+  note,
   confirmLabel,
   onConfirm,
   onCancel,
@@ -49,6 +52,7 @@ export function PasswordDialog({
       >
         <h2 id="password-dialog-title">{title}</h2>
         <p className="muted">{description}</p>
+        {note && <p className="muted">{note}</p>}
         <label>
           Password
           <input

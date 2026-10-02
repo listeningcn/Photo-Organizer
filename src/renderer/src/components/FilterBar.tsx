@@ -16,10 +16,12 @@ interface FilterBarProps {
   filter: LibraryFilter;
   shown: number;
   onChange: (filter: LibraryFilter) => void;
+  /** Receives the element where the active tab puts its own controls, on the same row. */
+  slotRef: (element: HTMLDivElement | null) => void;
 }
 
 /** Media type (All / Photos / Videos) and format filter, applied to Timeline, Trips and Map. */
-export function FilterBar({ photos, filter, shown, onChange }: FilterBarProps) {
+export function FilterBar({ photos, filter, shown, onChange, slotRef }: FilterBarProps) {
   const counts = useMemo(() => formatCounts(photos), [photos]);
   const videos = useMemo(
     () => photos.filter((p) => p.mediaType === 'video').length,
@@ -80,6 +82,7 @@ export function FilterBar({ photos, filter, shown, onChange }: FilterBarProps) {
           </Button>
         </>
       )}
+      <div ref={slotRef} className="filter-bar-slot" />
     </Group>
   );
 }

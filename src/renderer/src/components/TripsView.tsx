@@ -21,6 +21,7 @@ import {
   IconPlane,
 } from '@tabler/icons-react';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 
 import type { PhotoDto } from '@shared/api';
 import {
@@ -49,6 +50,8 @@ interface TripsViewProps {
   onOpen: (ids: number[], id: number) => void;
   onRename: (key: string, title: string) => Promise<void>;
   onSetHome: () => void;
+  /** Where the All/Trips/Events and year controls go (the filter row). */
+  toolbarSlot: HTMLElement | null;
 }
 
 type Filter = 'all' | 'trip' | 'event';
@@ -88,7 +91,7 @@ function countLabel(event: PhotoEvent, photosById: Map<number, PhotoDto>): strin
 }
 
 export function TripsView(props: TripsViewProps) {
-  const { events, photosById, titles, home, onSetHome } = props;
+  const { events, photosById, titles, home, onSetHome, toolbarSlot } = props;
   const [filter, setFilter] = useState<Filter>('all');
   const [year, setYear] = useState<string | null>(null);
   const [openKey, setOpenKey] = useState<string | null>(null);
@@ -144,31 +147,36 @@ export function TripsView(props: TripsViewProps) {
           </Group>
         </Alert>
       )}
-      <Group gap="sm">
-        <SegmentedControl
-          size="xs"
-          value={filter}
-          onChange={(value) => setFilter(value as Filter)}
-          data={[
-            { value: 'all', label: 'All' },
-            { value: 'trip', label: 'Trips' },
-            { value: 'event', label: 'Events' },
-          ]}
-        />
-        <Select
-          size="xs"
-          w={110}
-          placeholder="All years"
-          clearable
-          data={years}
-          value={year}
-          onChange={setYear}
-          aria-label="Year"
-        />
-        <Text size="xs" c="dimmed">
-          {visible.length} {visible.length === 1 ? 'item' : 'items'}
-        </Text>
-      </Group>
+      {toolbarSlot &&
+        createPortal(
+          <Group gap="sm" wrap="nowrap">
+            <SegmentedControl
+              size="xs"
+              value={filter}
+              onChange={(value) => setFilter(value as Filter)}
+              data={[
+                { value: 'all', label: 'All' },
+                { value: 'trip', label: 'Trips' },
+                { value: 'event', label: 'Events' },
+              ]}
+            />
+            <Select
+              size="xs"
+              w={110}
+              placeholder="All years"
+              clearable
+              data={years}
+              value={year}
+              onChange={setYear}
+              aria-label="Year"
+              comboboxProps={{ withinPortal: true }}
+            />
+            <Text size="xs" c="dimmed" style={{ whiteSpace: 'nowrap' }}>
+              {visible.length} {visible.length === 1 ? 'item' : 'items'}
+            </Text>
+          </Group>,
+          toolbarSlot
+        )}
 
       {visible.length === 0 ? (
         <Text c="dimmed">

@@ -31,7 +31,7 @@ interface ViewerProps {
   mapAvailable: boolean;
   onIndexChange: (index: number) => void;
   onClose: () => void;
-  onHide: (id: number, password: string) => Promise<void>;
+  onHide: (id: number, password: string | null) => Promise<void>;
 }
 
 const dateFormatter = new Intl.DateTimeFormat(undefined, {
@@ -296,7 +296,19 @@ export function Viewer({
             variant="light"
             color="gray"
             leftSection={<IconEyeOff size={16} />}
-            onClick={() => setConfirmingHide(true)}
+            onClick={async () => {
+              // Within 10 minutes of entering the password, hide without asking again.
+              const authorized = await window.api.hideAuthorized().catch(() => false);
+              if (authorized) {
+                try {
+                  await onHide(photo.id, null);
+                  return;
+                } catch {
+                  // Grace period just ran out; fall back to the password.
+                }
+              }
+              setConfirmingHide(true);
+            }}
           >
             Hide photo
           </Button>
@@ -307,6 +319,7 @@ export function Viewer({
         <PasswordDialog
           title="Hide this photo?"
           description="The photo will be removed from Timeline, Trips and Map. The original file on disk is never touched. You can restore it anytime from Settings → Hidden photos."
+          note="After entering your password, you can hide more photos for the next 10 minutes without entering it again."
           confirmLabel="Hide"
           onCancel={() => setConfirmingHide(false)}
           onConfirm={async (password) => {

@@ -327,6 +327,15 @@ label:not([class*='mantine-']) {
   border-bottom: 1px solid var(--border);
   overflow-x: auto;
 }
+.filter-bar-slot {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.filter-bar-slot:empty {
+  display: none;
+}
 .video-play {
   position: absolute;
   top: 50%;

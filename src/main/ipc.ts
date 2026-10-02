@@ -1,4 +1,10 @@
-import { BrowserWindow, dialog, ipcMain, type IpcMainInvokeEvent } from 'electron';
+import {
+  BrowserWindow,
+  dialog,
+  ipcMain,
+  type IpcMainInvokeEvent,
+  powerSaveBlocker,
+} from 'electron';
 
 import {
   type ImportProgress,
@@ -66,6 +72,28 @@ function assertId(value: unknown): asserts value is number {
   if (!Number.isInteger(value)) throw new Error('Invalid argument');
 }
 
+/** After the password is entered for hidden photos, it isn't asked again for a while. */
+const HIDE_GRACE_MS = 10 * 60 * 1000;
+let hideGrace: { session: object; until: number } | null = null;
+
+function hideGraceActive(): boolean {
+  const session = requireSession();
+  return !!hideGrace && hideGrace.session === session && Date.now() < hideGrace.until;
+}
+
+/** Verifies the password (or accepts none within the grace period) and extends the grace period. */
+async function authorizeHidden(password: unknown): Promise<boolean> {
+  const session = requireSession();
+  if (password === null || password === undefined || password === '') {
+    if (!hideGraceActive()) return false;
+  } else {
+    assertString(password);
+    if (!(await verifyPassword(password))) return false;
+  }
+  hideGrace = { session, until: Date.now() + HIDE_GRACE_MS };
+  return true;
+}
+
 let importRunning = false;
 let importController: AbortController | null = null;
 
@@ -82,11 +110,14 @@ async function exclusiveImport<T>(run: (signal: AbortSignal) => Promise<T>): Pro
   if (importRunning) throw new Error('An import is already running');
   importRunning = true;
   importController = new AbortController();
+  // Keep the app running (no app suspension / system sleep) while importing.
+  const blocker = powerSaveBlocker.start('prevent-app-suspension');
   const task = run(importController.signal);
   importTask = task;
   try {
     return await task;
   } finally {
+    if (powerSaveBlocker.isStarted(blocker)) powerSaveBlocker.stop(blocker);
     importRunning = false;
     importController = null;
     importTask = null;
@@ -97,6 +128,7 @@ async function exclusiveImport<T>(run: (signal: AbortSignal) => Promise<T>): Pro
 export async function stopImportAndLock() {
   importController?.abort();
   await importTask?.catch(() => undefined);
+  hideGrace = null;
   lockVault();
 }
 
@@ -190,20 +222,44 @@ export function registerIpc() {
     })();
   });
 
-  ipcMain.handle('photos:list', (_e, hidden: unknown) => {
+  ipcMain.handle('photos:list', () => {
     const { db } = requireSession();
-    const where = hidden === true ? 'deleted_at IS NOT NULL' : 'deleted_at IS NULL';
     const rows = db
-      .prepare(`SELECT * FROM photos WHERE ${where} ORDER BY taken_at DESC`)
+      .prepare('SELECT * FROM photos WHERE deleted_at IS NULL ORDER BY taken_at DESC')
+      .all() as PhotoRow[];
+    return rows.map(toDto);
+  });
+
+  ipcMain.handle('photos:hiddenCount', () => {
+    const { db } = requireSession();
+    return (
+      db
+        .prepare('SELECT COUNT(*) AS n FROM photos WHERE deleted_at IS NOT NULL')
+        .get() as { n: number }
+    ).n;
+  });
+
+  ipcMain.handle('photos:hideAuthorized', () => hideGraceActive());
+
+  // Hidden photos are listed only with the password (or within the grace period).
+  ipcMain.handle('photos:listHidden', async (_e, password: unknown) => {
+    const { db } = requireSession();
+    if (!(await authorizeHidden(password))) {
+      audit(db, 'hidden-list-denied', null);
+      throw new Error('Wrong password');
+    }
+    const rows = db
+      .prepare(
+        'SELECT * FROM photos WHERE deleted_at IS NOT NULL ORDER BY deleted_at DESC'
+      )
       .all() as PhotoRow[];
     return rows.map(toDto);
   });
 
   ipcMain.handle('photos:hide', async (_e, id: unknown, password: unknown) => {
     assertId(id);
-    assertString(password);
     const { db } = requireSession();
-    if (!(await verifyPassword(password))) {
+    if (!(await authorizeHidden(password))) {
       audit(db, 'hide-denied', id);
       throw new Error('Wrong password');
     }

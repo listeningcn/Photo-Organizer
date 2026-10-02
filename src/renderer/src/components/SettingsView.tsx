@@ -9,9 +9,15 @@ import {
   Title,
   Tooltip,
 } from '@mantine/core';
-import { IconFolder, IconFolderMinus, IconHome, IconX } from '@tabler/icons-react';
+import {
+  IconFolder,
+  IconFolderMinus,
+  IconFolderPlus,
+  IconHome,
+  IconRefresh,
+  IconX,
+} from '@tabler/icons-react';
 
-import type { PhotoDto } from '@shared/api';
 import { type LatLng } from '@shared/events';
 
 import { HiddenView } from './HiddenView';
@@ -20,6 +26,8 @@ import { HomeMap } from './RouteMap';
 interface SettingsViewProps {
   folders: string[];
   busy: boolean;
+  onAddFolder: () => void;
+  onRescan: () => void;
   onRemoveFolder: (folder: string) => void;
   home: LatLng | null;
   suggestedHome: LatLng | null;
@@ -29,15 +37,17 @@ interface SettingsViewProps {
   tripKm: number;
   onTripKmChange: (km: number) => void;
   mapAvailable: boolean;
-  hiddenPhotos: PhotoDto[];
-  onRestore: (id: number) => void;
+  hiddenCount: number;
+  onRestored: () => void;
 }
 
 export function SettingsView({
-  hiddenPhotos,
-  onRestore,
+  hiddenCount,
+  onRestored,
   folders,
   busy,
+  onAddFolder,
+  onRescan,
   onRemoveFolder,
   home,
   suggestedHome,
@@ -131,9 +141,28 @@ export function SettingsView({
         />
       </Card>
       <Card withBorder radius="md" padding="lg">
-        <Title order={4} mb="sm">
-          Folders
-        </Title>
+        <Group justify="space-between" mb="sm">
+          <Title order={4}>Folders</Title>
+          <Group gap="xs">
+            <Button
+              variant="default"
+              size="xs"
+              leftSection={<IconRefresh size={14} />}
+              disabled={busy || folders.length === 0}
+              onClick={onRescan}
+            >
+              Rescan
+            </Button>
+            <Button
+              size="xs"
+              leftSection={<IconFolderPlus size={14} />}
+              loading={busy}
+              onClick={onAddFolder}
+            >
+              Add folder
+            </Button>
+          </Group>
+        </Group>
         {folders.length === 0 ? (
           <Text c="dimmed">No folders imported yet.</Text>
         ) : (
@@ -176,13 +205,13 @@ export function SettingsView({
       </Card>
       <Card withBorder radius="md" padding="lg">
         <Title order={4} mb="xs">
-          Hidden photos{hiddenPhotos.length > 0 && ` (${hiddenPhotos.length})`}
+          Hidden photos{hiddenCount > 0 && ` (${hiddenCount})`}
         </Title>
         <Text size="sm" c="dimmed" mb="sm">
-          Hidden photos don't appear in Timeline, Trips or Map. Restore brings them back;
-          the original files are never touched.
+          Hidden photos don't appear in Timeline, Trips or Map. Viewing the list requires
+          your password. Restore brings them back; the original files are never touched.
         </Text>
-        <HiddenView photos={hiddenPhotos} onRestore={onRestore} />
+        <HiddenView count={hiddenCount} onRestored={onRestored} />
       </Card>
     </Stack>
   );
